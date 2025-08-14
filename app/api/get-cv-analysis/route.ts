@@ -1,0 +1,50 @@
+import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/permissions";
+import { db } from "@/lib/db";
+
+export async function GET(req: NextRequest) {
+  try {
+    const user = await requireAuth();
+    const { searchParams } = new URL(req.url);
+    const documentId = searchParams.get("documentId");
+
+    if (!documentId) {
+      return NextResponse.json(
+        { error: "Document ID is required" },
+        { status: 400 }
+      );
+    }
+
+    // Get the latest analysis for this document
+    const latestAnalysis = await db.cVAnalysis.findFirst({
+      where: { documentId },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!latestAnalysis) {
+      return NextResponse.json({ analysis: null, experienceAnalysis: null });
+    }
+
+    const analysis = {
+      id: latestAnalysis.id,
+      overallGrade: latestAnalysis.overallGrade,
+      overallScore: latestAnalysis.overallScore,
+      summary: latestAnalysis.summary,
+    };
+
+    const experienceAnalysis = latestAnalysis.experienceAnalysis
+      ? JSON.parse(latestAnalysis.experienceAnalysis)
+      : null;
+
+    return NextResponse.json({
+      analysis,
+      experienceAnalysis,
+    });
+  } catch (error: any) {
+    console.error("Get CV analysis error:", error);
+    return NextResponse.json(
+      { error: error.message || "Failed to get CV analysis" },
+      { status: 500 }
+    );
+  }
+}
