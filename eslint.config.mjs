@@ -18,6 +18,8 @@ const eslintConfig = [
       "@typescript-eslint/no-this-alias": "off",
       "@typescript-eslint/no-require-imports": "off",
       "@typescript-eslint/no-unused-expressions": "warn",
+      "react/no-unescaped-entities": "off",
+      "@next/next/no-page-custom-font": "off",
     },
   },
 ];
