@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      return new NextResponse(pdfBuffer, {
+      return new NextResponse(new Uint8Array(pdfBuffer), {
         headers: {
           "Content-Type": "application/pdf",
           "Content-Disposition": `attachment; filename="${document.title}.pdf"`,
@@ -155,7 +155,7 @@ export async function POST(req: NextRequest) {
         settings
       );
 
-      return new NextResponse(docxBuffer, {
+      return new NextResponse(new Uint8Array(docxBuffer), {
         headers: {
           "Content-Type":
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

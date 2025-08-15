@@ -5,9 +5,9 @@ import { db } from "@/lib/db";
 import { AnalysisResults } from "@/components/app/analysis-results";
 
 interface AnalysisPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export async function generateMetadata({
@@ -21,6 +21,7 @@ export async function generateMetadata({
 
 export default async function AnalysisPage({ params }: AnalysisPageProps) {
   const user = await getCurrentUser();
+  const { id } = await params;
 
   if (!user) {
     redirect("/auth/signin");
@@ -28,9 +29,7 @@ export default async function AnalysisPage({ params }: AnalysisPageProps) {
 
   // Fetch the analysis with related data
   const analysis = await db.analysis.findUnique({
-    where: {
-      id: params.id,
-    },
+    where: { id },
     include: {
       document: {
         select: {
@@ -50,12 +49,8 @@ export default async function AnalysisPage({ params }: AnalysisPageProps) {
     },
   });
 
-  if (!analysis) {
-    notFound();
-  }
-
-  // Check if user owns this analysis
-  if (analysis.userId !== user.id) {
+  // Check if analysis exists and belongs to user
+  if (!analysis || analysis.userId !== user.id) {
     notFound();
   }
 

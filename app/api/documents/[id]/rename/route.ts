@@ -4,10 +4,11 @@ import { db } from "@/lib/db";
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await requireAuth();
+    const { id } = await params;
     const { title } = await req.json();
 
     if (!title || typeof title !== "string" || title.trim().length === 0) {
@@ -22,13 +23,13 @@ export async function PATCH(
       );
     }
 
-    // Verify user owns the document
-    const document = await db.document.findUnique({
-      where: { id: params.id },
+    // Check if document exists and belongs to user
+    const existingDocument = await db.document.findUnique({
+      where: { id },
       select: { userId: true },
     });
 
-    if (!document || document.userId !== user.id) {
+    if (!existingDocument || existingDocument.userId !== user.id) {
       return NextResponse.json(
         { error: "Document not found or access denied" },
         { status: 404 }
@@ -37,7 +38,7 @@ export async function PATCH(
 
     // Update the document title
     const updatedDocument = await db.document.update({
-      where: { id: params.id },
+      where: { id },
       data: { title: trimmedTitle },
       select: {
         id: true,

@@ -5,14 +5,15 @@ import path from "path";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
   try {
     // Require authentication to access files
     const user = await requireAuth();
+    const { path: pathArray } = await params;
 
     // Reconstruct the file path
-    const filePath = params.path.join("/");
+    const filePath = pathArray.join("/");
 
     // Security check: ensure the path starts with the user's directory
     if (
@@ -43,7 +44,7 @@ export async function GET(
     }
 
     // Return the file
-    return new NextResponse(fileBuffer, {
+    return new NextResponse(new Uint8Array(fileBuffer), {
       headers: {
         "Content-Type": contentType,
         "Content-Disposition": `inline; filename="${path.basename(filePath)}"`,

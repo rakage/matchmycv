@@ -19,7 +19,7 @@ export default async function DocumentsPage() {
   }
 
   // Fetch user's documents with related data
-  const documents = await db.document.findMany({
+  const documentsRaw = await db.document.findMany({
     where: {
       userId: user.id,
     },
@@ -55,6 +55,21 @@ export default async function DocumentsPage() {
       updatedAt: "desc",
     },
   });
+
+  // Convert Date objects to strings for client component
+  const documents = documentsRaw.map((doc) => ({
+    ...doc,
+    createdAt: doc.createdAt.toISOString(),
+    updatedAt: doc.updatedAt.toISOString(),
+    versions: doc.versions.map((version) => ({
+      ...version,
+      createdAt: version.createdAt.toISOString(),
+    })),
+    analyses: doc.analyses.map((analysis) => ({
+      ...analysis,
+      createdAt: analysis.createdAt.toISOString(),
+    })),
+  }));
 
   return (
     <div className="max-w-6xl mx-auto">

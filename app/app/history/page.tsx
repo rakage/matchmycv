@@ -16,7 +16,7 @@ export default async function HistoryPage() {
   }
 
   // Fetch user's analyses with related data
-  const analyses = await db.analysis.findMany({
+  const analysesRaw = await db.analysis.findMany({
     where: {
       userId: user.id,
     },
@@ -40,6 +40,12 @@ export default async function HistoryPage() {
       createdAt: "desc",
     },
   });
+
+  // Convert Date objects to strings for client component
+  const analyses = analysesRaw.map(({ createdAt, ...analysis }) => ({
+    ...analysis,
+    createdAt: createdAt.toISOString(),
+  }));
 
   return (
     <div className="max-w-6xl mx-auto">
