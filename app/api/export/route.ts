@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/permissions";
 import { db } from "@/lib/db";
+import { CVContent, ExportSettings } from "@/lib/types";
 import {
   Document,
   Packer,
@@ -173,10 +174,10 @@ export async function POST(req: NextRequest) {
 }
 
 async function generatePDF(
-  content: any,
+  content: CVContent,
   title: string,
   template: string = "standard",
-  settings: any = {}
+  settings: ExportSettings = {}
 ): Promise<Buffer> {
   const pdf = new jsPDF({
     unit: "pt",
@@ -556,10 +557,10 @@ async function generatePDF(
 
 // Lightweight internal PDF generator used as a fallback when LibreOffice is unavailable
 async function internalGeneratePDF(
-  content: any,
+  content: CVContent,
   title: string,
   template: string,
-  settings: any
+  settings: ExportSettings
 ): Promise<Buffer> {
   const paper = (settings?.paperSize || "a4").toLowerCase();
   const format =
@@ -587,7 +588,7 @@ async function internalGeneratePDF(
     style: "normal" | "bold" | "italic" = "normal",
     size = baseFontSize
   ) => {
-    doc.setFont(baseFont as any, style);
+    doc.setFont(baseFont as "helvetica" | "times", style);
     doc.setFontSize(size);
   };
 
@@ -687,7 +688,7 @@ async function internalGeneratePDF(
   }
 
   const experience = (content?.experience || []).filter(
-    (e: any) => e?.title && e?.company
+    (e) => e?.title && e?.company
   );
   if (experience.length) {
     addSectionTitle("PROFESSIONAL EXPERIENCE");
@@ -705,7 +706,7 @@ async function internalGeneratePDF(
   }
 
   const education = (content?.education || []).filter(
-    (e: any) => e?.degree && e?.institution
+    (e) => e?.degree && e?.institution
   );
   if (education.length) {
     addSectionTitle("EDUCATION");
@@ -723,10 +724,10 @@ async function internalGeneratePDF(
 }
 
 async function generateDOCX(
-  content: any,
+  content: CVContent,
   title: string,
   template: string = "standard",
-  settings: any = {}
+  settings: ExportSettings = {}
 ): Promise<Buffer> {
   const children = [];
 
@@ -861,14 +862,14 @@ async function generateDOCX(
   // Professional Experience
   if (content.experience && content.experience.length > 0) {
     const validExperience = content.experience.filter(
-      (exp: any) =>
+      (exp) =>
         exp.title && exp.title.trim() && exp.company && exp.company.trim()
     );
 
     if (validExperience.length > 0) {
       children.push(createSectionHeader("PROFESSIONAL EXPERIENCE"));
 
-      validExperience.forEach((exp: any, index: number) => {
+      validExperience.forEach((exp, index: number) => {
         // Job title and company
         children.push(
           new Paragraph({
@@ -941,7 +942,7 @@ async function generateDOCX(
   // Education
   if (content.education && content.education.length > 0) {
     const validEducation = content.education.filter(
-      (edu: any) =>
+      (edu) =>
         edu.degree &&
         edu.degree.trim() &&
         edu.institution &&
@@ -951,7 +952,7 @@ async function generateDOCX(
     if (validEducation.length > 0) {
       children.push(createSectionHeader("EDUCATION"));
 
-      validEducation.forEach((edu: any, index: number) => {
+      validEducation.forEach((edu, index: number) => {
         // Degree
         children.push(
           new Paragraph({

@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "./auth";
 import { db } from "./db";
-import { Plan, Role } from "./types";
+import { Plan } from "./types";
 
 export async function getCurrentUser() {
   const session = await getServerSession(authOptions);

@@ -1,12 +1,7 @@
 import mammoth from "mammoth";
-import {
-  CVStructure,
-  ExperienceEntry,
-  EducationEntry,
-  EditAction,
-} from "./types";
-import { getAIProvider } from "./ai/provider";
 import pdf from "pdf-parse";
+import { ExperienceEntry, EducationEntry } from "./types";
+import { getAIProvider } from "./ai/provider";
 
 export async function extractTextFromFile(
   file: Buffer,
@@ -44,46 +39,31 @@ export async function structureCVText(rawText: string): Promise<any> {
     const aiProvider = getAIProvider();
     const structuredData = await aiProvider.extractCVStructure(rawText);
 
-    // Validate and ensure all required sections exist with proper fallbacks
-    const validatedData = {
-      sections: {
-        contact: {
-          name: structuredData.sections?.contact?.name || "",
-          email: structuredData.sections?.contact?.email || "",
-          phone: structuredData.sections?.contact?.phone || "",
-          location: structuredData.sections?.contact?.location || "",
-          website: structuredData.sections?.contact?.website || "",
-          linkedin: structuredData.sections?.contact?.linkedin || "",
-        },
-        summary: structuredData.sections?.summary || "",
-        experience: Array.isArray(structuredData.sections?.experience)
-          ? structuredData.sections.experience.map((exp: any) => ({
-              title: exp.title || "",
-              company: exp.company || "",
-              duration: exp.duration || "",
-              bullets: Array.isArray(exp.bullets)
-                ? exp.bullets.filter(
-                    (bullet: string) => bullet && bullet.trim()
-                  )
-                : [],
-            }))
-          : [],
-        education: Array.isArray(structuredData.sections?.education)
-          ? structuredData.sections.education.map((edu: any) => ({
-              degree: edu.degree || "",
-              institution: edu.institution || "",
-              year: edu.year || "",
-            }))
-          : [],
-        skills: Array.isArray(structuredData.sections?.skills)
-          ? structuredData.sections.skills.filter(
-              (skill: string) => skill && skill.trim()
-            )
-          : [],
-      },
+    // Create structured data from AI extraction
+    const structured = {
+      contact: structuredData.contact || {},
+      summary: structuredData.summary || "",
+      experience: Array.isArray(structuredData.experience)
+        ? structuredData.experience.map((exp: ExperienceEntry) => ({
+            title: exp.title || "Unknown Position",
+            company: exp.company || "Unknown Company",
+            duration: exp.duration || "",
+            bullets: exp.bullets || [],
+          }))
+        : [],
+      education: Array.isArray(structuredData.education)
+        ? structuredData.education.map((edu: EducationEntry) => ({
+            degree: edu.degree || "Unknown Degree",
+            institution: edu.institution || "Unknown Institution",
+            year: edu.year || "",
+          }))
+        : [],
+      skills: Array.isArray(structuredData.skills)
+        ? structuredData.skills.filter((skill: string) => skill && skill.trim())
+        : [],
     };
 
-    return validatedData;
+    return structured;
   } catch (error: any) {
     console.error("AI CV structuring failed:", error);
 
@@ -150,11 +130,11 @@ function extractSection(text: string, sectionNames: string[]): string | null {
   return null;
 }
 
-function extractBasicExperience(text: string): any[] {
-  // Basic pattern matching for experience sections
+function extractBasicExperience(text: string): ExperienceEntry[] {
+  const experiences: ExperienceEntry[] = [];
+  let currentExp: Partial<ExperienceEntry> | null = null;
+
   const lines = text.split("\n");
-  const experience = [];
-  let currentExp: any = null;
 
   for (const line of lines) {
     const trimmed = line.trim();
@@ -166,23 +146,24 @@ function extractBasicExperience(text: string): any[] {
         /\b(developer|engineer|manager|analyst|coordinator|assistant|director|specialist)\b/i
       )
     ) {
-      if (currentExp) experience.push(currentExp);
+      if (currentExp) experiences.push(currentExp as ExperienceEntry);
       currentExp = {
         title: trimmed.split("|")[0]?.trim() || trimmed,
-        company: trimmed.split("|")[1]?.trim() || "",
+        company: trimmed.split("|")[1]?.trim() || "Unknown Company",
         duration: "",
         bullets: [],
       };
-    } else if (currentExp && trimmed.match(/^\s*[-•*]/)) {
-      currentExp.bullets.push(trimmed.replace(/^\s*[-•*]\s*/, ""));
+    } else if (currentExp && trimmed.startsWith("•")) {
+      if (!currentExp.bullets) currentExp.bullets = [];
+      currentExp.bullets.push(trimmed.substring(1).trim());
     }
   }
 
-  if (currentExp) experience.push(currentExp);
-  return experience.slice(0, 5); // Limit to 5 entries
+  if (currentExp) experiences.push(currentExp as ExperienceEntry);
+  return experiences.slice(0, 5); // Limit to 5 entries
 }
 
-function extractBasicEducation(text: string): any[] {
+function extractBasicEducation(text: string): EducationEntry[] {
   const educationKeywords = [
     "bachelor",
     "master",

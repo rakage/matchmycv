@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/permissions";
 import { db } from "@/lib/db";
+import { CVContent, ExportSettings } from "@/lib/types";
 import { Document, Packer, Paragraph, TextRun, AlignmentType } from "docx";
 
 export async function GET(
@@ -72,10 +73,10 @@ export async function GET(
 
 // DOCX generation function (copied from export route)
 async function generateDOCX(
-  content: any,
+  content: CVContent,
   title: string,
   template: string = "standard",
-  settings: any = {}
+  settings: ExportSettings = {}
 ): Promise<Buffer> {
   const children = [];
 
@@ -210,14 +211,14 @@ async function generateDOCX(
   // Professional Experience
   if (content.experience && content.experience.length > 0) {
     const validExperience = content.experience.filter(
-      (exp: any) =>
+      (exp) =>
         exp.title && exp.title.trim() && exp.company && exp.company.trim()
     );
 
     if (validExperience.length > 0) {
       children.push(createSectionHeader("PROFESSIONAL EXPERIENCE"));
 
-      validExperience.forEach((exp: any, index: number) => {
+      validExperience.forEach((exp, index: number) => {
         // Job title and company
         children.push(
           new Paragraph({
@@ -290,7 +291,7 @@ async function generateDOCX(
   // Education
   if (content.education && content.education.length > 0) {
     const validEducation = content.education.filter(
-      (edu: any) =>
+      (edu) =>
         edu.degree &&
         edu.degree.trim() &&
         edu.institution &&
@@ -300,7 +301,7 @@ async function generateDOCX(
     if (validEducation.length > 0) {
       children.push(createSectionHeader("EDUCATION"));
 
-      validEducation.forEach((edu: any, index: number) => {
+      validEducation.forEach((edu, index: number) => {
         // Degree
         children.push(
           new Paragraph({

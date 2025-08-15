@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/permissions";
 import { db } from "@/lib/db";
+import { ExperienceEntry } from "@/lib/types";
 import OpenAI from "openai";
 
 const openai = new OpenAI({

@@ -33,51 +33,57 @@ export interface Suggestion {
   type: "keyword" | "quantification" | "phrasing" | "achievement" | "structure";
 }
 
-export interface CVStructure {
-  sections: {
-    summary?: string;
-    experience: ExperienceEntry[];
-    education: EducationEntry[];
-    skills: string[];
-    certifications?: string[];
-    projects?: ProjectEntry[];
+export interface CVContent {
+  contact?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    location?: string;
+    website?: string;
+    linkedin?: string;
   };
-  metadata: {
-    wordCount: number;
-    bulletCount: number;
-    quantifiedBullets: number;
-    strongVerbs: number;
-    yearsOfExperience?: number;
-  };
+  summary?: string;
+  skills?: string[];
+  experience?: ExperienceEntry[];
+  education?: EducationEntry[];
+  sections?: CVContent; // For nested structure
 }
 
 export interface ExperienceEntry {
   title: string;
   company: string;
-  duration: string;
-  location?: string;
-  bullets: string[];
-  startDate?: Date;
-  endDate?: Date;
-  isCurrent?: boolean;
+  duration?: string;
+  bullets?: string[];
+  experienceIndex?: number;
 }
 
 export interface EducationEntry {
   degree: string;
   institution: string;
-  year: string;
-  gpa?: string;
-  location?: string;
-  honors?: string[];
+  year?: string;
 }
 
-export interface ProjectEntry {
-  name: string;
-  description: string;
-  technologies?: string[];
-  url?: string;
-  startDate?: Date;
-  endDate?: Date;
+export interface ExportSettings {
+  fontSize?: number;
+  lineSpacing?: number;
+  fontFamily?: string;
+  margins?: string;
+  paperSize?: string;
+}
+
+export interface CVStructure {
+  contact: {
+    name: string;
+    email: string;
+    phone: string;
+    location: string;
+    website?: string;
+    linkedin?: string;
+  };
+  summary: string;
+  skills: string[];
+  experience: ExperienceEntry[];
+  education: EducationEntry[];
 }
 
 export interface JobAnalysis {
@@ -109,6 +115,13 @@ export interface TextRange {
   text: string;
 }
 
+export interface ActionTarget {
+  type: "section" | "experience" | "education" | "skill";
+  target: string;
+  context?: string;
+  parameters?: Record<string, string | number | boolean>;
+}
+
 export interface AIProvider {
   name: string;
   generateAnalysis: (
@@ -117,7 +130,7 @@ export interface AIProvider {
   ) => Promise<AnalysisResult>;
   editText: (prompt: string, action: EditAction) => Promise<string>;
   generateEmbeddings: (text: string) => Promise<number[]>;
-  extractCVStructure: (cvText: string) => Promise<any>;
+  extractCVStructure: (cvText: string) => Promise<CVStructure>;
 }
 
 export type Plan = "FREE" | "PRO";

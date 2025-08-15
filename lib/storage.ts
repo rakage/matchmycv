@@ -341,7 +341,6 @@ export class S3Helper {
   static generateCVFilePath(originalFileName: string, userId: string): string {
     const timestamp = Date.now();
     const randomString = Math.random().toString(36).substring(2, 8);
-    const extension = originalFileName.split(".").pop();
     const sanitizedName = originalFileName
       .replace(/[^a-zA-Z0-9.-]/g, "_")
       .substring(0, 50);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/permissions";
 import { db } from "@/lib/db";
+import { CVContent } from "@/lib/types";
 import OpenAI from "openai";
 
 const openai = new OpenAI({
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function analyzeCVContent(content: any) {
+async function analyzeCVContent(content: CVContent) {
   const prompt = `You are an expert CV/Resume reviewer. Analyze the following CV content for overall assessment only.
 
 CV Content:
@@ -140,7 +141,7 @@ Return your analysis in the following JSON format:
   }
 }
 
-function createFallbackAnalysis(content: any) {
+function createFallbackAnalysis(content: CVContent) {
   let overallScore = 85;
   let overallGrade = "B";
 
