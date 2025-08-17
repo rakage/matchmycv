@@ -8,6 +8,7 @@ import {
   Briefcase,
   Loader2,
   ChevronDown,
+  Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +37,11 @@ interface ExistingDocument {
   mimeType: string;
   fileSize: number;
   createdAt: string;
+  versions: Array<{
+    id: string;
+    label: string;
+    createdAt: string;
+  }>;
 }
 
 export function NewAnalysisForm() {
@@ -55,6 +61,9 @@ export function NewAnalysisForm() {
   >([]);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string>("");
   const [selectedDocument, setSelectedDocument] = useState<any>(null);
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(
+    null
+  );
 
   // CV Upload state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -95,6 +104,12 @@ export function NewAnalysisForm() {
     const document = existingDocuments.find((doc) => doc.id === documentId);
     if (document) {
       setSelectedDocument(document);
+      // Auto-select the latest version if available
+      if (document.versions && document.versions.length > 0) {
+        setSelectedVersionId(document.versions[0].id);
+      } else {
+        setSelectedVersionId(null); // Use original document
+      }
     }
   };
 
@@ -221,6 +236,7 @@ export function NewAnalysisForm() {
       // Start analysis
       const analysisPayload = {
         documentId: uploadedDocument.id,
+        versionId: selectedVersionId, // Add version selection
         jobTargetId: jobTargetResponse.jobTarget.id,
       };
 
@@ -403,22 +419,72 @@ export function NewAnalysisForm() {
                 </div>
 
                 {selectedDocument && (
-                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="flex items-center text-green-800">
-                      <FileText className="h-4 w-4 mr-2" />
-                      <div>
-                        <span className="text-sm font-medium">
-                          Selected: {selectedDocument.title}
-                        </span>
-                        <p className="text-xs text-green-600">
-                          {selectedDocument.mimeType === "application/pdf"
-                            ? "PDF"
-                            : "DOCX"}{" "}
-                          •{" "}
-                          {(selectedDocument.fileSize / 1024 / 1024).toFixed(1)}{" "}
-                          MB
-                        </p>
+                  <div className="space-y-4">
+                    {/* Document Info */}
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center text-green-800">
+                        <FileText className="h-4 w-4 mr-2" />
+                        <div>
+                          <span className="text-sm font-medium">
+                            Selected: {selectedDocument.title}
+                          </span>
+                          <p className="text-xs text-green-600">
+                            {selectedDocument.mimeType === "application/pdf"
+                              ? "PDF"
+                              : "DOCX"}{" "}
+                            •{" "}
+                            {(selectedDocument.fileSize / 1024 / 1024).toFixed(
+                              1
+                            )}{" "}
+                            MB
+                          </p>
+                        </div>
                       </div>
+                    </div>
+
+                    {/* Version Selection */}
+                    <div>
+                      <Label htmlFor="version-select">Select Version</Label>
+                      <Select
+                        value={selectedVersionId || "original"}
+                        onValueChange={(value) =>
+                          setSelectedVersionId(
+                            value === "original" ? null : value
+                          )
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose a version..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="original">
+                            <div className="flex items-center space-x-2">
+                              <FileText className="h-4 w-4" />
+                              <span>Original Document</span>
+                            </div>
+                          </SelectItem>
+                          {selectedDocument.versions?.map((version: any) => (
+                            <SelectItem key={version.id} value={version.id}>
+                              <div className="flex items-center space-x-2">
+                                <Calendar className="h-4 w-4" />
+                                <div>
+                                  <span>{version.label}</span>
+                                  <p className="text-xs text-gray-500">
+                                    {new Date(
+                                      version.createdAt
+                                    ).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {selectedVersionId
+                          ? "Using selected version for analysis"
+                          : "Using original document for analysis"}
+                      </p>
                     </div>
                   </div>
                 )}

@@ -30,6 +30,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { RenameDocumentDialog } from "./rename-document-dialog";
+import { DeleteDocumentDialog } from "./delete-document-dialog";
+import { toast } from "sonner";
 
 interface DocumentWithRelations {
   id: string;
@@ -68,16 +70,20 @@ export function DocumentsList({
   onDocumentUpdate,
 }: DocumentsListProps) {
   const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set());
-  const [renameDialog, setRenameDialog] = useState<{
-    isOpen: boolean;
-    documentId: string;
-    currentTitle: string;
-  }>({
+  const [renameDialog, setRenameDialog] = useState({
     isOpen: false,
     documentId: "",
     currentTitle: "",
   });
+
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const [localDocuments, setLocalDocuments] = useState(documents);
+
+  const [deleteDialog, setDeleteDialog] = useState({
+    isOpen: false,
+    documentId: "",
+    documentTitle: "",
+  });
 
   const handleDownload = async (documentId: string, title: string) => {
     setDownloadingIds((prev) => new Set([...prev, documentId]));
@@ -103,7 +109,10 @@ export function DocumentsList({
     } catch (error: any) {
       console.error("Download failed:", error);
       // You could add a toast notification here
-      alert(error.message || "Failed to download document");
+      toast.error("Failed to download document", {
+        description: error.message || "Failed to download document",
+        duration: 5000,
+      });
     } finally {
       setDownloadingIds((prev) => {
         const newSet = new Set(prev);
@@ -140,6 +149,65 @@ export function DocumentsList({
       isOpen: false,
       documentId: "",
       currentTitle: "",
+    });
+  };
+
+  const handleDeleteClick = (documentId: string, documentTitle: string) => {
+    setDeleteDialog({
+      isOpen: true,
+      documentId,
+      documentTitle,
+    });
+  };
+
+  const handleDeleteConfirm = async () => {
+    const { documentId, documentTitle } = deleteDialog;
+    setDeletingIds((prev) => new Set(prev).add(documentId));
+
+    try {
+      const response = await fetch(`/api/documents/${documentId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to delete document");
+      }
+
+      // Remove document from local state
+      setLocalDocuments((prev) => prev.filter((doc) => doc.id !== documentId));
+
+      // Close dialog
+      setDeleteDialog({
+        isOpen: false,
+        documentId: "",
+        documentTitle: "",
+      });
+
+      // Show success toast
+      toast.success(`"${documentTitle}" has been permanently deleted.`);
+    } catch (error: any) {
+      console.error("Delete failed:", error);
+
+      // Show error toast
+      toast.error("Failed to delete document", {
+        description:
+          error.message || "An unexpected error occurred. Please try again.",
+      });
+    } finally {
+      setDeletingIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(documentId);
+        return newSet;
+      });
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialog({
+      isOpen: false,
+      documentId: "",
+      documentTitle: "",
     });
   };
 
@@ -217,9 +285,19 @@ export function DocumentsList({
                       <Edit className="mr-2 h-4 w-4" />
                       Rename
                     </DropdownMenuItem>
-                    <DropdownMenuItem className="text-red-600">
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete
+                    <DropdownMenuItem
+                      className="text-red-600"
+                      onClick={() =>
+                        handleDeleteClick(document.id, document.title)
+                      }
+                      disabled={deletingIds.has(document.id)}
+                    >
+                      {deletingIds.has(document.id) ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="mr-2 h-4 w-4" />
+                      )}
+                      {deletingIds.has(document.id) ? "Deleting..." : "Delete"}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -320,6 +398,15 @@ export function DocumentsList({
         documentId={renameDialog.documentId}
         currentTitle={renameDialog.currentTitle}
         onRename={handleRenameComplete}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteDocumentDialog
+        isOpen={deleteDialog.isOpen}
+        onClose={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
+        documentTitle={deleteDialog.documentTitle}
+        isDeleting={deletingIds.has(deleteDialog.documentId)}
       />
     </>
   );

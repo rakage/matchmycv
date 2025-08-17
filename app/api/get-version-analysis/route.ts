@@ -17,11 +17,13 @@ export async function GET(req: NextRequest) {
     }
 
     // If versionId is provided, look for analysis specific to that version
-    // For now, we'll use the general document analysis since we haven't implemented version-specific analysis yet
-    // This can be extended later to store analysis per version
+    const whereClause: any = { documentId };
+    if (versionId) {
+      whereClause.versionId = versionId;
+    }
 
     const latestAnalysis = await db.cVAnalysis.findFirst({
-      where: { documentId },
+      where: whereClause,
       orderBy: { createdAt: "desc" },
     });
 

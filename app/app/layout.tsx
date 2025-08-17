@@ -2,6 +2,7 @@ import { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/permissions";
 import { AppNavigation } from "@/components/app/navigation";
+import { ToastProvider } from "@/components/providers/toast-provider";
 
 export const metadata: Metadata = {
   title: {
@@ -28,6 +29,7 @@ export default async function AppLayout({
       <main className="lg:pl-64">
         <div className="px-4 sm:px-6 lg:px-8 py-8">{children}</div>
       </main>
+      <ToastProvider />
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 export async function POST(req: NextRequest) {
   try {
     const user = await requireAuth();
-    const { documentId, experienceAnalysis } = await req.json();
+    const { documentId, versionId, experienceAnalysis } = await req.json();
 
     if (!documentId) {
       return NextResponse.json(
@@ -22,10 +22,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Update the existing CV analysis record with combined experience analysis results
+    const whereClause: any = { documentId };
+    if (versionId) {
+      whereClause.versionId = versionId;
+    }
+
     await db.cVAnalysis.updateMany({
-      where: {
-        documentId,
-      },
+      where: whereClause,
       data: {
         experienceAnalysis: JSON.stringify(experienceAnalysis),
       },

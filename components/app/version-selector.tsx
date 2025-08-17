@@ -26,6 +26,7 @@ interface VersionSelectorProps {
   selectedVersionId: string | null;
   onVersionChange: (versionId: string | null) => void;
   documentTitle: string;
+  analyzedVersionIds?: string[];
 }
 
 export function VersionSelector({
@@ -33,6 +34,7 @@ export function VersionSelector({
   selectedVersionId,
   onVersionChange,
   documentTitle,
+  analyzedVersionIds = [],
 }: VersionSelectorProps) {
   const [showVersions, setShowVersions] = useState(false);
 
@@ -132,9 +134,19 @@ export function VersionSelector({
                       Original Document
                     </span>
                   </div>
-                  {!selectedVersionId && (
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                  )}
+                  <div className="flex items-center space-x-1">
+                    {analyzedVersionIds.includes("original") && (
+                      <Badge
+                        variant="secondary"
+                        className="text-xs bg-green-100 text-green-700"
+                      >
+                        Analyzed
+                      </Badge>
+                    )}
+                    {!selectedVersionId && (
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    )}
+                  </div>
                 </div>
                 <p className="text-xs text-gray-600">Base version uploaded</p>
               </div>
@@ -158,6 +170,14 @@ export function VersionSelector({
                       </span>
                     </div>
                     <div className="flex items-center space-x-1">
+                      {analyzedVersionIds.includes(version.id) && (
+                        <Badge
+                          variant="secondary"
+                          className="text-xs bg-green-100 text-green-700"
+                        >
+                          Analyzed
+                        </Badge>
+                      )}
                       {version.isActive && (
                         <Badge variant="outline" className="text-xs">
                           Active

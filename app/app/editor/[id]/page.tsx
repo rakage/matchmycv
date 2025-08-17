@@ -46,29 +46,59 @@ export default async function EditorPage({ params }: EditorPageProps) {
     notFound();
   }
 
-  // Parse structured CV data
-  const structuredData = JSON.parse(document.structured);
+  // Parse structured CV data with error handling
+  let structuredData;
+  let analysisContent;
 
-  // Transform content for analysis APIs - extract the actual data from sections wrapper
-  const analysisContent = structuredData.sections
-    ? structuredData.sections
-    : structuredData;
+  try {
+    structuredData = JSON.parse(document.structured);
 
-  // Get the latest analysis if it exists
+    // Ensure structuredData has the expected structure
+    if (!structuredData || typeof structuredData !== "object") {
+      throw new Error("Invalid structured data");
+    }
+
+    // Transform content for analysis APIs - extract the actual data from sections wrapper
+    analysisContent = structuredData.sections
+      ? structuredData.sections
+      : structuredData;
+
+    // Ensure analysisContent has proper fallback values
+    if (!analysisContent || typeof analysisContent !== "object") {
+      analysisContent = {
+        contact: {},
+        summary: "",
+        experience: [],
+        education: [],
+        skills: [],
+      };
+    }
+
+    // Ensure contact object exists
+    if (!analysisContent.contact) {
+      analysisContent.contact = {};
+    }
+  } catch (error) {
+    console.error("Error parsing structured data:", error);
+    // Fallback to basic structure
+    structuredData = {
+      contact: {},
+      summary: "",
+      experience: [],
+      education: [],
+      skills: [],
+    };
+    analysisContent = structuredData;
+  }
+
+  // Get the latest analysis if it exists - but don't pass it to client
+  // Let the client-side component fetch version-specific analysis
   const latestAnalysis = document.cvAnalyses[0] || null;
-  const existingAnalysis = latestAnalysis
-    ? {
-        id: latestAnalysis.id,
-        overallGrade: latestAnalysis.overallGrade as "A" | "B" | "C" | "D",
-        overallScore: latestAnalysis.overallScore,
-        summary: latestAnalysis.summary,
-      }
-    : null;
 
-  const existingExperienceAnalysis =
-    latestAnalysis && latestAnalysis.experienceAnalysis
-      ? JSON.parse(latestAnalysis.experienceAnalysis)
-      : null;
+  // Don't pass existing analysis to client - let it fetch version-specific analysis
+  const existingAnalysis = null;
+
+  const existingExperienceAnalysis = null;
 
   // Transform document data to match CVEditor interface
   const transformedDocument = {
@@ -85,10 +115,25 @@ export default async function EditorPage({ params }: EditorPageProps) {
     })),
   };
 
+  // Ensure structuredData has all required properties for the client component
+  const safeStructuredData = {
+    contact: structuredData.contact || {},
+    summary: structuredData.summary || "",
+    experience: Array.isArray(structuredData.experience)
+      ? structuredData.experience
+      : [],
+    education: Array.isArray(structuredData.education)
+      ? structuredData.education
+      : [],
+    skills: Array.isArray(structuredData.skills) ? structuredData.skills : [],
+    // Include sections if it exists for backward compatibility
+    ...(structuredData.sections && { sections: structuredData.sections }),
+  };
+
   return (
     <EditorPageClient
       document={transformedDocument}
-      structuredData={structuredData}
+      structuredData={safeStructuredData}
       analysisContent={analysisContent}
       user={user}
       existingAnalysis={existingAnalysis}

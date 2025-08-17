@@ -12,7 +12,7 @@ const openai = new OpenAI({
 export async function POST(req: NextRequest) {
   try {
     const user = await requireAuth();
-    const { content, documentId } = await req.json();
+    const { content, documentId, versionId } = await req.json();
 
     if (!content) {
       return NextResponse.json(
@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
     const savedAnalysis = await db.cVAnalysis.create({
       data: {
         documentId,
+        versionId: versionId || null, // Optional versionId
         overallScore: analysis.overallScore,
         overallGrade: analysis.overallGrade,
         summary: analysis.summary,

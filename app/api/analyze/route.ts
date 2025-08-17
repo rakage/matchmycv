@@ -5,6 +5,71 @@ import { analysisRequestSchema } from "@/lib/validations";
 import { getAIProvider } from "@/lib/ai/provider";
 import { checkRateLimit, analysisRateLimit } from "@/lib/rate-limit";
 
+// Helper function to convert structured CV content back to text format
+function convertStructuredToText(structuredContent: any): string {
+  let text = "";
+
+  // Add contact information
+  if (structuredContent.contact) {
+    const contact = structuredContent.contact;
+    if (contact.name) text += `${contact.name}\n`;
+    if (contact.email) text += `${contact.email}\n`;
+    if (contact.phone) text += `${contact.phone}\n`;
+    if (contact.location) text += `${contact.location}\n`;
+    if (contact.website) text += `${contact.website}\n`;
+    if (contact.linkedin) text += `${contact.linkedin}\n`;
+    text += "\n";
+  }
+
+  // Add summary
+  if (structuredContent.summary) {
+    text += `SUMMARY\n${structuredContent.summary}\n\n`;
+  }
+
+  // Add experience
+  if (
+    structuredContent.experience &&
+    Array.isArray(structuredContent.experience)
+  ) {
+    text += "EXPERIENCE\n";
+    structuredContent.experience.forEach((exp: any) => {
+      text += `${exp.title || ""} at ${exp.company || ""}\n`;
+      if (exp.duration) text += `${exp.duration}\n`;
+      if (exp.bullets && Array.isArray(exp.bullets)) {
+        exp.bullets.forEach((bullet: string) => {
+          if (bullet.trim()) text += `• ${bullet}\n`;
+        });
+      }
+      text += "\n";
+    });
+  }
+
+  // Add education
+  if (
+    structuredContent.education &&
+    Array.isArray(structuredContent.education)
+  ) {
+    text += "EDUCATION\n";
+    structuredContent.education.forEach((edu: any) => {
+      text += `${edu.degree || ""} from ${edu.institution || ""}`;
+      if (edu.year) text += ` (${edu.year})`;
+      text += "\n";
+    });
+    text += "\n";
+  }
+
+  // Add skills
+  if (structuredContent.skills && Array.isArray(structuredContent.skills)) {
+    text += "SKILLS\n";
+    text += structuredContent.skills
+      .filter((skill: string) => skill.trim())
+      .join(", ");
+    text += "\n\n";
+  }
+
+  return text.trim();
+}
+
 export async function POST(req: NextRequest) {
   try {
     const user = await requireAuth();
@@ -75,10 +140,44 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Determine which content to use for analysis
+    let cvText = document.rawText; // Default to original document
+
+    if (validatedData.versionId) {
+      // If versionId is provided, fetch and use version content
+      const version = await db.version.findFirst({
+        where: {
+          id: validatedData.versionId,
+          documentId: document.id,
+        },
+      });
+
+      if (!version) {
+        return NextResponse.json(
+          { error: "Version not found" },
+          { status: 404 }
+        );
+      }
+
+      // Parse version content and extract text for analysis
+      try {
+        const versionContent = JSON.parse(version.content);
+
+        // Convert structured version content back to text format for analysis
+        cvText = convertStructuredToText(versionContent);
+      } catch (error) {
+        console.error("Error parsing version content:", error);
+        return NextResponse.json(
+          { error: "Invalid version content format" },
+          { status: 400 }
+        );
+      }
+    }
+
     // Get AI provider and perform analysis
     const aiProvider = getAIProvider();
     const analysisResult = await aiProvider.generateAnalysis(
-      document.rawText,
+      cvText,
       jobTarget.rawText
     );
 

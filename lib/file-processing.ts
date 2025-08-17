@@ -37,31 +37,44 @@ export async function structureCVText(rawText: string): Promise<any> {
   try {
     // Use the AI provider's structured CV extraction method
     const aiProvider = getAIProvider();
+    // Get the structured data from AI extraction
     const structuredData = await aiProvider.extractCVStructure(rawText);
+
+    // Extract data from sections wrapper if it exists, otherwise use direct structure
+    const extractedData = (structuredData as any).sections || structuredData;
 
     // Create structured data from AI extraction
     const structured = {
-      contact: structuredData.contact || {},
-      summary: structuredData.summary || "",
-      experience: Array.isArray(structuredData.experience)
-        ? structuredData.experience.map((exp: ExperienceEntry) => ({
+      contact: extractedData.contact || {},
+      summary: extractedData.summary || "",
+      experience: Array.isArray(extractedData.experience)
+        ? extractedData.experience.map((exp: ExperienceEntry) => ({
             title: exp.title || "Unknown Position",
             company: exp.company || "Unknown Company",
             duration: exp.duration || "",
             bullets: exp.bullets || [],
           }))
         : [],
-      education: Array.isArray(structuredData.education)
-        ? structuredData.education.map((edu: EducationEntry) => ({
+      education: Array.isArray(extractedData.education)
+        ? extractedData.education.map((edu: EducationEntry) => ({
             degree: edu.degree || "Unknown Degree",
             institution: edu.institution || "Unknown Institution",
             year: edu.year || "",
           }))
         : [],
-      skills: Array.isArray(structuredData.skills)
-        ? structuredData.skills.filter((skill: string) => skill && skill.trim())
+      skills: Array.isArray(extractedData.skills)
+        ? extractedData.skills.filter((skill: string) => skill && skill.trim())
         : [],
     };
+
+    console.log("AI extraction successful:", {
+      hasContact:
+        !!structured.contact && Object.keys(structured.contact).length > 0,
+      hasSummary: !!structured.summary,
+      experienceCount: structured.experience.length,
+      educationCount: structured.education.length,
+      skillsCount: structured.skills.length,
+    });
 
     return structured;
   } catch (error: any) {

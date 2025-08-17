@@ -49,6 +49,8 @@ import { CVPreview } from "./cv-preview";
 import { ExportSidebar } from "./export-sidebar";
 import { DocxPreview } from "./docx-preview";
 import { ExperienceCard } from "./experience-card";
+import { SaveVersionDialog } from "./save-version-dialog";
+import { toast } from "sonner";
 
 interface CVEditorProps {
   document: {
@@ -150,41 +152,77 @@ export function CVEditor({
   const [success, setSuccess] = useState<string>("");
   const [activeTab, setActiveTab] = useState("contact");
   const [exportSidebarOpen, setExportSidebarOpen] = useState(false);
+  const [saveVersionDialogOpen, setSaveVersionDialogOpen] = useState(false);
 
   // Local versions list (keeps UI updated after saving)
   const [versions, setVersions] = useState(document.versions);
 
+  // Helper function to safely get data from either direct structure or sections wrapper
+  const getStructuredData = () => {
+    if (!structuredData) {
+      return {
+        contact: {},
+        summary: "",
+        experience: [],
+        education: [],
+        skills: [],
+      };
+    }
+
+    // If structuredData has sections property, use that
+    if (structuredData.sections) {
+      return {
+        contact: structuredData.sections.contact || {},
+        summary: structuredData.sections.summary || "",
+        experience: structuredData.sections.experience || [],
+        education: structuredData.sections.education || [],
+        skills: structuredData.sections.skills || [],
+      };
+    }
+
+    // Otherwise, structuredData is the direct data
+    return {
+      contact: (structuredData as any).contact || {},
+      summary: (structuredData as any).summary || "",
+      experience: (structuredData as any).experience || [],
+      education: (structuredData as any).education || [],
+      skills: (structuredData as any).skills || [],
+    };
+  };
+
+  const safeData = getStructuredData();
+
   // Editable content state
   const [editedContent, setEditedContent] = useState({
     contact: {
-      name: structuredData.sections.contact?.name || user.name || "",
-      email: structuredData.sections.contact?.email || "",
-      phone: structuredData.sections.contact?.phone || "",
-      location: structuredData.sections.contact?.location || "",
-      website: structuredData.sections.contact?.website || "",
-      linkedin: structuredData.sections.contact?.linkedin || "",
+      name: safeData.contact?.name || user.name || "",
+      email: safeData.contact?.email || "",
+      phone: safeData.contact?.phone || "",
+      location: safeData.contact?.location || "",
+      website: safeData.contact?.website || "",
+      linkedin: safeData.contact?.linkedin || "",
     },
-    summary: structuredData.sections.summary || "",
-    experience: structuredData.sections.experience || [],
-    education: structuredData.sections.education || [],
-    skills: structuredData.sections.skills || [],
+    summary: safeData.summary || "",
+    experience: safeData.experience || [],
+    education: safeData.education || [],
+    skills: safeData.skills || [],
   });
 
   // Sync editor when structuredData changes (e.g., version switch)
   useEffect(() => {
     setEditedContent({
       contact: {
-        name: structuredData.sections.contact?.name || user.name || "",
-        email: structuredData.sections.contact?.email || "",
-        phone: structuredData.sections.contact?.phone || "",
-        location: structuredData.sections.contact?.location || "",
-        website: structuredData.sections.contact?.website || "",
-        linkedin: structuredData.sections.contact?.linkedin || "",
+        name: safeData.contact?.name || user.name || "",
+        email: safeData.contact?.email || "",
+        phone: safeData.contact?.phone || "",
+        location: safeData.contact?.location || "",
+        website: safeData.contact?.website || "",
+        linkedin: safeData.contact?.linkedin || "",
       },
-      summary: structuredData.sections.summary || "",
-      experience: structuredData.sections.experience || [],
-      education: structuredData.sections.education || [],
-      skills: structuredData.sections.skills || [],
+      summary: safeData.summary || "",
+      experience: safeData.experience || [],
+      education: safeData.education || [],
+      skills: safeData.skills || [],
     });
   }, [structuredData]);
 
@@ -234,56 +272,95 @@ export function CVEditor({
     }
   };
 
-  const handleSaveVersion = async () => {
+  const handleSaveVersion = async (
+    saveOption: "current" | "new",
+    newVersionLabel?: string
+  ) => {
     setIsLoading(true);
     setError("");
 
     try {
       const content = JSON.stringify(editedContent);
 
-      const response = await fetch("/api/versions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          documentId: document.id,
-          label: `Edited - ${new Date().toLocaleDateString()}`,
-          content,
-        }),
-      });
+      if (saveOption === "current" && selectedVersionId) {
+        // Update existing version
+        const response = await fetch(`/api/versions/${selectedVersionId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            content,
+          }),
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to save version");
-      }
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to update version");
+        }
 
-      const saved = await response.json();
+        // Update local versions list
+        setVersions((prev) =>
+          prev.map((v) =>
+            v.id === selectedVersionId ? { ...v, content: content } : v
+          )
+        );
 
-      // Try to update local versions list, fallback to refresh
-      if (saved && saved.id) {
-        const newVersion = {
-          id: saved.id,
-          label: saved.label || `Edited - ${new Date().toLocaleDateString()}`,
-          content: saved.content || content,
-          isActive: !!saved.isActive,
-          createdAt: saved.createdAt || new Date().toISOString(),
-        };
-        setVersions((prev) => [newVersion, ...prev]);
-        // Auto-select the newly saved version
-        onVersionChange && onVersionChange(newVersion.id);
+        toast.success("Version updated successfully!");
       } else {
-        // Ensure UI updates if API didn't return the record
-        router.refresh();
-      }
+        // Create new version
+        const label =
+          newVersionLabel || `Edited - ${new Date().toLocaleDateString()}`;
 
-      setSuccess("Version saved successfully!");
-      setTimeout(() => setSuccess(""), 3000);
+        const response = await fetch("/api/versions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            documentId: document.id,
+            label,
+            content,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to create version");
+        }
+
+        const result = await response.json();
+
+        // Try to update local versions list, fallback to refresh
+        try {
+          const newVersion = {
+            id: result.version.id,
+            label: result.version.label,
+            content: result.version.content,
+            isActive: false,
+            createdAt: result.version.createdAt,
+          };
+          setVersions((prev) => [newVersion, ...prev]);
+          // Auto-select the newly saved version
+          onVersionChange && onVersionChange(newVersion.id);
+        } catch (updateError) {
+          console.warn(
+            "Failed to update local versions, will need page refresh"
+          );
+        }
+
+        toast.success("New version created successfully!");
+      }
     } catch (err: any) {
       setError(err.message || "Failed to save version");
+      toast.error(err.message || "Failed to save version");
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSaveClick = () => {
+    setSaveVersionDialogOpen(true);
   };
 
   const handleExport = async (
@@ -362,14 +439,14 @@ export function CVEditor({
   const removeExperience = (index: number) => {
     setEditedContent((prev) => ({
       ...prev,
-      experience: prev.experience.filter((_, i) => i !== index),
+      experience: prev.experience.filter((_: any, i: number) => i !== index),
     }));
   };
 
   const updateExperience = (index: number, field: string, value: string) => {
     setEditedContent((prev) => ({
       ...prev,
-      experience: prev.experience.map((exp, i) =>
+      experience: prev.experience.map((exp: any, i: number) =>
         i === index ? { ...exp, [field]: value } : exp
       ),
     }));
@@ -378,7 +455,7 @@ export function CVEditor({
   const addExperienceBullet = (expIndex: number) => {
     setEditedContent((prev) => ({
       ...prev,
-      experience: prev.experience.map((exp, i) =>
+      experience: prev.experience.map((exp: any, i: number) =>
         i === expIndex ? { ...exp, bullets: [...exp.bullets, ""] } : exp
       ),
     }));
@@ -387,11 +464,13 @@ export function CVEditor({
   const removeExperienceBullet = (expIndex: number, bulletIndex: number) => {
     setEditedContent((prev) => ({
       ...prev,
-      experience: prev.experience.map((exp, i) =>
+      experience: prev.experience.map((exp: any, i: number) =>
         i === expIndex
           ? {
               ...exp,
-              bullets: exp.bullets.filter((_, bi) => bi !== bulletIndex),
+              bullets: exp.bullets.filter(
+                (_: any, bi: number) => bi !== bulletIndex
+              ),
             }
           : exp
       ),
@@ -489,7 +568,7 @@ export function CVEditor({
               </CardDescription>
             </div>
             <div className="flex items-center space-x-2">
-              <Button onClick={handleSaveVersion} disabled={isLoading}>
+              <Button onClick={handleSaveClick} disabled={isLoading}>
                 <Save className="h-4 w-4 mr-2" />
                 Save Version
               </Button>
@@ -505,24 +584,16 @@ export function CVEditor({
                   }}
                 >
                   <SelectTrigger className="w-48">
-                    <SelectValue placeholder="Select version" />
+                    <SelectValue
+                      placeholder={
+                        selectedVersionId
+                          ? versions.find((v) => v.id === selectedVersionId)
+                              ?.label || "Select version"
+                          : "Original Document"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="original">
-                      <div className="flex items-center space-x-2">
-                        <FileText className="h-4 w-4" />
-                        <span>Original Document</span>
-                        {!selectedVersionId && (
-                          <CheckCircle className="h-3 w-3 text-green-600" />
-                        )}
-                        {(!analyzedVersionIds ||
-                          !analyzedVersionIds.includes("original")) && (
-                          <Badge variant="outline" className="text-[10px] ml-2">
-                            Not analyzed
-                          </Badge>
-                        )}
-                      </div>
-                    </SelectItem>
                     {versions.map((version) => (
                       <SelectItem key={version.id} value={version.id}>
                         <div className="flex items-center space-x-2">
@@ -1066,6 +1137,19 @@ export function CVEditor({
         content={editedContent}
         onExport={handleExport}
         isLoading={isLoading}
+      />
+
+      {/* Save Version Dialog */}
+      <SaveVersionDialog
+        isOpen={saveVersionDialogOpen}
+        onClose={() => setSaveVersionDialogOpen(false)}
+        onSave={handleSaveVersion}
+        currentVersionLabel={
+          selectedVersionId
+            ? versions.find((v) => v.id === selectedVersionId)?.label
+            : "Original Document"
+        }
+        hasCurrentVersion={!!selectedVersionId}
       />
     </div>
   );

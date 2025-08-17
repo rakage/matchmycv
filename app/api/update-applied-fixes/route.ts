@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 export async function POST(req: NextRequest) {
   try {
     const user = await requireAuth();
-    const { documentId, experienceIndex, bulletIndex, fixType } =
+    const { documentId, versionId, experienceIndex, bulletIndex, fixType } =
       await req.json();
 
     if (!documentId) {
@@ -33,8 +33,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Get the current analysis
+    const whereClause: any = { documentId };
+    if (versionId) {
+      whereClause.versionId = versionId;
+    }
+
     const currentAnalysis = await db.cVAnalysis.findFirst({
-      where: { documentId },
+      where: whereClause,
       orderBy: { createdAt: "desc" },
     });
 

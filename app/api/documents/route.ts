@@ -17,6 +17,16 @@ export async function GET() {
         mimeType: true,
         fileSize: true,
         createdAt: true,
+        versions: {
+          select: {
+            id: true,
+            label: true,
+            createdAt: true,
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+        },
       },
       orderBy: {
         createdAt: "desc",

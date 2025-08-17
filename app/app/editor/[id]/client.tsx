@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CVEditor } from "@/components/app/cv-editor";
 import { UnifiedCVAnalysis } from "@/components/app/unified-cv-analysis";
 
@@ -50,17 +50,93 @@ export function EditorPageClient({
   >(existingExperienceAnalysis);
 
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(
-    null
+    () => {
+      // Select the latest version by default (first in the array since they're ordered by createdAt desc)
+      if (document.versions && document.versions.length > 0) {
+        return document.versions[0].id;
+      }
+      return null; // Fall back to original document if no versions exist
+    }
   );
+
+  // Ensure structuredData has proper fallback structure
+  const safeStructuredData = structuredData || {
+    contact: {},
+    summary: "",
+    experience: [],
+    education: [],
+    skills: [],
+  };
+
   const [currentStructuredData, setCurrentStructuredData] =
-    useState(structuredData);
+    useState(safeStructuredData);
+
+  const safeAnalysisContent = analysisContent || {
+    contact: {},
+    summary: "",
+    experience: [],
+    education: [],
+    skills: [],
+  };
+
   const [currentAnalysisContent, setCurrentAnalysisContent] =
-    useState(analysisContent);
+    useState(safeAnalysisContent);
 
   // Track analyzed version ids. If there is existing analysis at load time, mark "original" as analyzed.
   const [analyzedVersionIds, setAnalyzedVersionIds] = useState<Set<string>>(
-    () => new Set(existingAnalysis ? ["original"] : [])
+    () => new Set()
   );
+
+  // Check for existing analyses on mount
+  useEffect(() => {
+    const checkExistingAnalyses = async () => {
+      const analysisChecks = [];
+
+      // Check original document
+      analysisChecks.push(
+        fetch(`/api/get-cv-analysis?documentId=${document.id}`)
+          .then((res) => res.json())
+          .then((data) => ({
+            versionId: "original",
+            hasAnalysis: !!data.analysis,
+          }))
+          .catch(() => ({ versionId: "original", hasAnalysis: false }))
+      );
+
+      // Check each version
+      for (const version of document.versions) {
+        analysisChecks.push(
+          fetch(
+            `/api/get-cv-analysis?documentId=${document.id}&versionId=${version.id}`
+          )
+            .then((res) => res.json())
+            .then((data) => ({
+              versionId: version.id,
+              hasAnalysis: !!data.analysis,
+            }))
+            .catch(() => ({ versionId: version.id, hasAnalysis: false }))
+        );
+      }
+
+      const results = await Promise.all(analysisChecks);
+      const analyzedIds = results
+        .filter((result) => result.hasAnalysis)
+        .map((result) => result.versionId);
+
+      if (analyzedIds.length > 0) {
+        setAnalyzedVersionIds(new Set(analyzedIds));
+      }
+    };
+
+    checkExistingAnalyses();
+  }, [document.id, document.versions]);
+
+  // Load the selected version's content on initial mount
+  useEffect(() => {
+    if (selectedVersionId) {
+      handleVersionChange(selectedVersionId);
+    }
+  }, []); // Only run on mount
 
   const handleExperienceAnalysisUpdate = (
     analysis: ExperienceAnalysis[] | null
@@ -80,9 +156,9 @@ export function EditorPageClient({
     setSelectedVersionId(versionId);
 
     if (versionId === null) {
-      // Use original document content
-      setCurrentStructuredData(structuredData);
-      setCurrentAnalysisContent(analysisContent);
+      // Use original document content with safe fallbacks
+      setCurrentStructuredData(safeStructuredData);
+      setCurrentAnalysisContent(safeAnalysisContent);
       return;
     }
 
@@ -118,10 +194,20 @@ export function EditorPageClient({
         return;
       }
 
-      const versionStructuredData = { sections: parsed };
+      // Ensure parsed data has proper structure with fallbacks
+      const safeParsed = {
+        contact: parsed.contact || {},
+        summary: parsed.summary || "",
+        experience: Array.isArray(parsed.experience) ? parsed.experience : [],
+        education: Array.isArray(parsed.education) ? parsed.education : [],
+        skills: Array.isArray(parsed.skills) ? parsed.skills : [],
+        ...parsed, // Include any other properties
+      };
+
+      const versionStructuredData = { sections: safeParsed };
 
       setCurrentStructuredData(versionStructuredData);
-      setCurrentAnalysisContent(parsed);
+      setCurrentAnalysisContent(safeParsed);
       // Keep existing experience analysis until user re-analyzes
     } catch (err) {
       console.warn("Error switching version:", err);
@@ -149,7 +235,7 @@ export function EditorPageClient({
       <div className="mt-8">
         <CVEditor
           document={{ ...document, versions: allVersions }}
-          structuredData={currentStructuredData}
+          structuredData={currentStructuredData || safeStructuredData}
           latestAnalysis={null}
           user={user}
           experienceAnalysis={experienceAnalysis}

@@ -7,6 +7,7 @@ export async function GET(req: NextRequest) {
     const user = await requireAuth();
     const { searchParams } = new URL(req.url);
     const documentId = searchParams.get("documentId");
+    const versionId = searchParams.get("versionId");
 
     if (!documentId) {
       return NextResponse.json(
@@ -15,9 +16,14 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Get the latest analysis for this document
+    // Get the latest analysis for this document/version
+    const whereClause: any = { documentId };
+    if (versionId) {
+      whereClause.versionId = versionId;
+    }
+
     const latestAnalysis = await db.cVAnalysis.findFirst({
-      where: { documentId },
+      where: whereClause,
       orderBy: { createdAt: "desc" },
     });
 

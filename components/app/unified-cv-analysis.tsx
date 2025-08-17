@@ -85,23 +85,35 @@ export function UnifiedCVAnalysis({
   );
   const [userEdits, setUserEdits] = useState<{ [key: string]: string }>({});
 
-  // Load existing analysis on component mount if none provided
+  // Load existing analysis on component mount and when version changes
   useEffect(() => {
     const loadExistingAnalysis = async () => {
       if (!existingAnalysis) {
         try {
+          const queryParams = new URLSearchParams({ documentId });
+          if (currentVersionId) {
+            queryParams.append("versionId", currentVersionId);
+          }
+
           const response = await fetch(
-            `/api/get-cv-analysis?documentId=${documentId}`
+            `/api/get-cv-analysis?${queryParams.toString()}`
           );
           if (response.ok) {
             const data = await response.json();
             if (data.analysis) {
               setAnalysis(data.analysis);
+            } else {
+              setAnalysis(null);
             }
             if (data.experienceAnalysis) {
               setExperienceAnalysis(data.experienceAnalysis);
               if (onExperienceAnalysisUpdate) {
                 onExperienceAnalysisUpdate(data.experienceAnalysis);
+              }
+            } else {
+              setExperienceAnalysis(null);
+              if (onExperienceAnalysisUpdate) {
+                onExperienceAnalysisUpdate(null);
               }
             }
           }
@@ -119,21 +131,11 @@ export function UnifiedCVAnalysis({
     loadExistingAnalysis();
   }, [
     documentId,
+    currentVersionId, // Add currentVersionId as dependency
     existingAnalysis,
-    experienceAnalysis,
-    onExperienceAnalysisUpdate,
   ]);
 
-  // Reset analysis when content changes (version switch)
-  useEffect(() => {
-    if (!existingAnalysis) {
-      setAnalysis(null);
-      setExperienceAnalysis(null);
-      if (onExperienceAnalysisUpdate) {
-        onExperienceAnalysisUpdate(null);
-      }
-    }
-  }, [content, existingAnalysis, onExperienceAnalysisUpdate]);
+  // Reset analysis when content changes (version switch) - removed this effect since it's handled above
 
   const handleAnalyze = async () => {
     setIsLoading(true);
@@ -148,7 +150,11 @@ export function UnifiedCVAnalysis({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ content, documentId }),
+        body: JSON.stringify({
+          content,
+          documentId,
+          versionId: currentVersionId,
+        }),
       });
 
       // Call experience analysis for each experience entry individually
@@ -227,6 +233,7 @@ export function UnifiedCVAnalysis({
             },
             body: JSON.stringify({
               documentId,
+              versionId: currentVersionId,
               experienceAnalysis: experienceResults,
             }),
           });
@@ -304,11 +311,6 @@ export function UnifiedCVAnalysis({
         <div className="flex items-center space-x-4">
           <div>
             <h1 className="text-2xl font-bold">{documentTitle}</h1>
-            {currentVersionId && (
-              <p className="text-sm text-blue-600 font-medium">
-                Analyzing Version: {currentVersionId}
-              </p>
-            )}
           </div>
           {analysis && (
             <div className="flex items-center space-x-2">

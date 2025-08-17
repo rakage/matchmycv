@@ -42,6 +42,7 @@ export const jobTargetSchema = z.object({
 // Analysis schemas
 export const analysisRequestSchema = z.object({
   documentId: z.string().min(1, "Document ID is required"),
+  versionId: z.string().optional(),
   jobTargetId: z.string().min(1, "Job target ID is required"),
   weights: z
     .object({
